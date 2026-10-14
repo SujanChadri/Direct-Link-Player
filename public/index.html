@@ -1,0 +1,82 @@
+<!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Reel — Stream any direct video link</title><meta name="description" content="Paste a direct video URL and stream it with dual audio track and subtitle switching.">
+<link rel="icon" href="/favicon.ico">
+<link href="https://fonts.googleapis.com/css2?family=Instrument+Serif:ital@0;1&family=Space+Grotesk:wght@400;500&display=swap" rel="stylesheet">
+<style>
+:root{--bg:#0e0b09;--card:#17120f;--line:#2b231d;--fg:#f3ece4;--mut:#9b8f84;--pri:#ff9f3a}
+*{box-sizing:border-box}body{margin:0;background:var(--bg);color:var(--fg);font-family:'Space Grotesk',sans-serif}
+main{max-width:1000px;margin:auto;padding:40px 20px}.serif{font-family:'Instrument Serif',serif}
+header{display:flex;justify-content:space-between;align-items:baseline;margin-bottom:36px}header h1{margin:0;font-size:32px;font-style:italic}
+.dot{color:var(--pri)}.tag{font-size:11px;letter-spacing:.2em;text-transform:uppercase;color:var(--mut)}
+h2{font-size:clamp(40px,7vw,60px);line-height:1.05;margin:0 0 12px;font-weight:400}h2 i{color:var(--pri)}
+p.m{color:var(--mut);max-width:560px}
+form{display:flex;gap:8px;background:var(--card);border:1px solid var(--line);border-radius:12px;padding:8px;margin:28px 0}
+form input{flex:1;min-width:0;background:none;border:0;color:var(--fg);font:inherit;padding:8px;outline:none}
+.btn{background:var(--pri);color:#1a0f05;border:0;border-radius:8px;padding:8px 20px;font:500 15px inherit;font-family:inherit;cursor:pointer}
+.sbtn{background:#2a221c;color:var(--fg);border:0;border-radius:6px;padding:6px 10px;font:12px inherit;font-family:inherit;cursor:pointer}
+.sbtn.on{background:var(--pri);color:#1a0f05}
+#wrap{position:relative;aspect-ratio:16/9;background:#000;border-radius:12px;overflow:hidden;box-shadow:0 0 80px -20px rgba(255,159,58,.35);display:none}
+#host{position:absolute;inset:0}#host canvas,#host video{width:100%!important;height:100%!important}
+.ov{position:absolute;inset:0;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:10px;text-align:center;padding:20px;color:var(--mut)}
+#big{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);width:80px;height:80px;border-radius:50%;border:0;background:var(--pri);font-size:30px;cursor:pointer;display:none}
+#bar{position:absolute;left:0;right:0;bottom:0;padding:40px 16px 12px;background:linear-gradient(transparent,rgba(0,0,0,.85));display:none;transition:opacity .2s}
+#wrap.hide #bar{opacity:0}#wrap.hide:hover #bar{opacity:1}
+#seek{width:100%;accent-color:var(--pri)}.row{display:flex;align-items:center;gap:10px;margin-top:6px;font-size:13px}
+.ic{background:none;border:0;color:var(--fg);font-size:16px;cursor:pointer}.r{margin-left:auto;display:flex;gap:6px}
+.menu{position:relative}.pop{position:absolute;bottom:110%;right:0;background:#1d1713;border:1px solid var(--line);border-radius:8px;padding:4px;min-width:190px;max-height:240px;overflow:auto;display:none}
+.pop button{display:block;width:100%;text-align:left;background:none;border:0;color:var(--fg);padding:8px 10px;border-radius:6px;font:12px inherit;font-family:inherit;cursor:pointer}
+.pop button:hover{background:#2a221c}.pop button.a{color:var(--pri)}
+.spin{width:32px;height:32px;border:3px solid #333;border-top-color:var(--pri);border-radius:50%;animation:s 1s linear infinite}@keyframes s{to{transform:rotate(1turn)}}
+#info{display:none;justify-content:space-between;gap:12px;margin-top:14px;font-size:14px;color:var(--mut)}#name{overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+footer{margin-top:60px;font-size:12px;color:var(--mut)}
+</style></head><body><main>
+<header><h1 class="serif">Reel<span class="dot">.</span></h1><span class="tag">Direct link player</span></header>
+<section id="hero"><h2 class="serif">Paste a link.<br><i>Pick your language.</i></h2><p class="m">Stream MKV, MP4 and more straight from a direct URL — switch between multiple audio tracks and subtitles mid-play.</p></section>
+<form id="f"><input id="u" type="url" required placeholder="https://example.com/movie.mkv"><button class="btn">Stream</button></form>
+<div id="wrap"><div id="host"></div>
+ <div id="load" class="ov"><div class="spin"></div><span>Opening stream…</span></div>
+ <div id="err" class="ov" style="display:none"><p class="serif" style="font-size:22px;color:var(--fg);margin:0">Couldn't play this video</p><p id="emsg" style="margin:0;max-width:440px;font-size:14px"></p><button class="btn" id="retry">Try again</button></div>
+ <button id="big" aria-label="Play">▶</button>
+ <div id="bar"><input id="seek" type="range" min="0" max="0" step="0.1" value="0">
+  <div class="row"><button class="ic" id="pp">▶</button><button class="ic" id="mute">🔊</button><input id="vol" type="range" min="0" max="1" step="0.05" value="1" style="width:80px;accent-color:var(--pri)"><span id="t">0:00 / 0:00</span>
+  <div class="r"><div class="menu" id="am" style="display:none"><button class="sbtn" data-m="ap">🎧 Audio</button><div class="pop" id="ap"></div></div>
+  <div class="menu" id="sm" style="display:none"><button class="sbtn" data-m="sp">CC Subtitles</button><div class="pop" id="sp"></div></div>
+  <button class="ic" id="fs">⛶</button></div></div></div>
+</div>
+<div id="info"><span id="name"></span><button class="sbtn" id="share">Share link</button></div>
+<footer>Videos stream through Reel, so most direct links play even if the host blocks browsers.</footer>
+</main>
+<script>
+const $=id=>document.getElementById(id);let P=null,playing=false,time=0,dur=0,curA=null,curS=-1,vol=1,muted=false,url=null;
+const fmt=s=>{if(!isFinite(s)||s<0)s=0;const h=s/3600|0,m=(s%3600)/60|0,x=s%60|0;return(h?h+':'+String(m).padStart(2,'0'):m)+':'+String(x).padStart(2,'0')};
+const label=(t,i)=>{const m=t.metadata||{};let n=m.language;try{if(n&&n!=='und')n=new Intl.DisplayNames(['en'],{type:'language'}).of(n)||n}catch{}const b=[m.title,m.title&&n&&m.title.toLowerCase().includes(n.toLowerCase())?'':n].filter(Boolean);return b.length?b.join(' · '):'Track '+(i+1)};
+function fileName(u){try{const x=new URL(u),cd=x.searchParams.get('response-content-disposition'),m=cd&&cd.match(/filename\*?=(?:UTF-8'')?"?([^";]+)"?/i);return decodeURIComponent(m?m[1]:x.pathname.split('/').pop()||u)}catch{return u}}
+let ld;function loadAVP(){if(window.AVPlayer)return Promise.resolve(window.AVPlayer);return ld||(ld=new Promise((ok,no)=>{const s=document.createElement('script');s.src='/avp/avplayer.js';s.onload=()=>window.AVPlayer?ok(window.AVPlayer):no(new Error('Player engine failed to load'));s.onerror=()=>no(new Error('Player engine failed to load'));document.head.appendChild(s)}))}
+function ui(){$('pp').textContent=playing?'❚❚':'▶';$('big').style.display=(!playing&&time===0&&P)?'block':'none';$('t').textContent=fmt(time)+' / '+fmt(dur);$('seek').max=dur;if(!seeking)$('seek').value=Math.min(time,dur);$('wrap').classList.toggle('hide',playing)}
+function state(s,msg){$('load').style.display=s==='loading'?'flex':'none';$('err').style.display=s==='error'?'flex':'none';$('bar').style.display=s==='ready'?'block':'none';if(msg)$('emsg').textContent=msg+'. Make sure the link points straight to a video file and hasn\'t expired.';if(s!=='ready')$('big').style.display='none'}
+async function start(u){url=u;$('hero').style.display='none';$('wrap').style.display='block';$('info').style.display='flex';$('name').textContent=fileName(u);$('u').value=u;
+ if(P){try{P.destroy()}catch{}P=null}$('host').innerHTML='';playing=false;time=0;dur=0;state('loading');$('am').style.display=$('sm').style.display='none';
+ try{const A=await loadAVP();const p=new A({container:$('host'),isLive:false,preLoadTime:30,enableJitterBuffer:true,jitterBufferMax:8,jitterBufferMin:2});
+  p.on('time',v=>{time=Number(v)/1000;ui()});['played','playing'].forEach(e=>p.on(e,()=>{playing=true;ui()}));['paused','ended'].forEach(e=>p.on(e,()=>{playing=false;ui()}));p.on('error',()=>state('error','Playback error'));
+  const tm=setTimeout(()=>state('error','The video took too long to open'),60000);
+  await p.load(location.origin+'/api/public/proxy?url='+encodeURIComponent(u));clearTimeout(tm);P=p;
+  const st=p.getStreams?p.getStreams():[];for(const t of st){const d=Number(t.duration);if(!isFinite(d)||d<=0)continue;const tb=t.timeBase;const s=tb&&Number(tb.den)>0?d*(Number(tb.num)||1)/Number(tb.den):d/1000;if(s>dur)dur=s}
+  const a=st.filter(t=>String(t.mediaType).toLowerCase()==='audio'),s=st.filter(t=>String(t.mediaType).toLowerCase()==='subtitle');
+  curA=(p.selectedAudioStream&&p.selectedAudioStream.id)??(a[0]&&a[0].id);try{p.setSubtitleEnable&&p.setSubtitleEnable(false)}catch{}
+  const fillA=()=>{$('ap').innerHTML='';a.forEach((t,i)=>{const b=document.createElement('button');b.className=t.id===curA?'a':'';b.textContent=(t.id===curA?'● ':'')+label(t,i);b.onclick=async()=>{close();if(t.id===curA)return;const at=time;await p.selectAudio(t.id);curA=t.id;fillA();if(Math.abs(Number(p.currentTime)/1000-at)>2)seek(at)};$('ap').appendChild(b)})};
+  const fillS=()=>{$('sp').innerHTML='';[{id:-1,off:1},...s].forEach((t,i)=>{const b=document.createElement('button');b.className=t.id===curS?'a':'';b.textContent=(t.id===curS?'● ':'')+(t.off?'Off':label(t,i-1));b.onclick=async()=>{close();curS=t.id;fillS();if(t.id<0){p.setSubtitleEnable&&p.setSubtitleEnable(false);return}try{await p.selectSubtitle(t.id)}catch{}p.setSubtitleEnable&&p.setSubtitleEnable(true)};$('sp').appendChild(b)})};
+  if(a.length){$('am').style.display='block';$('am').querySelector('button').textContent='🎧 Audio ('+a.length+')';fillA()}if(s.length){$('sm').style.display='block';fillS()}
+  state('ready');ui()}catch(e){state('error',e&&e.message||'Could not open this video')}}
+const toggle=async()=>{if(!P)return;playing?P.pause():await P.play()};
+let seeking=false;async function seek(s){if(!P)return;time=s;ui();try{await P.seek(BigInt(Math.round(s*1000)))}catch{try{await P.seek(Math.round(s*1000))}catch{}}}
+function close(){document.querySelectorAll('.pop').forEach(x=>x.style.display='none')}
+document.querySelectorAll('[data-m]').forEach(b=>b.onclick=e=>{e.stopPropagation();const pop=$(b.dataset.m),o=pop.style.display==='block';close();pop.style.display=o?'none':'block'});
+$('host').onclick=toggle;$('big').onclick=toggle;$('pp').onclick=toggle;
+$('seek').oninput=()=>{seeking=true};$('seek').onchange=e=>{seeking=false;seek(Number(e.target.value))};
+const sv=()=>{try{P&&P.setVolume(muted?0:vol)}catch{}$('mute').textContent=muted||vol===0?'🔇':'🔊'};$('mute').onclick=()=>{muted=!muted;sv()};$('vol').oninput=e=>{vol=Number(e.target.value);muted=false;sv()};
+$('fs').onclick=()=>document.fullscreenElement?document.exitFullscreen():$('wrap').requestFullscreen();
+$('retry').onclick=()=>start(url);
+$('share').onclick=async()=>{await navigator.clipboard.writeText(location.href);$('share').textContent='Copied';setTimeout(()=>$('share').textContent='Share link',1500)};
+$('f').onsubmit=e=>{e.preventDefault();const v=$('u').value.trim();if(!v)return;history.pushState(null,'','/?url='+encodeURIComponent(v));start(v)};
+const q=new URLSearchParams(location.search).get('url');if(q)start(q);
+</script></body></html>
