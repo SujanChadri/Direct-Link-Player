@@ -56,7 +56,12 @@ function ui(){$('pp').textContent=playing?'❚❚':'▶';$('big').style.display=
 function state(s,msg){$('load').style.display=s==='loading'?'flex':'none';$('err').style.display=s==='error'?'flex':'none';$('bar').style.display=s==='ready'?'block':'none';if(msg)$('emsg').textContent=msg+'. Make sure the link points straight to a video file and hasn\'t expired.';if(s!=='ready')$('big').style.display='none'}
 async function start(u){url=u;$('hero').style.display='none';$('wrap').style.display='block';$('info').style.display='flex';$('name').textContent=fileName(u);$('u').value=u;
  if(P){try{P.destroy()}catch{}P=null}$('host').innerHTML='';playing=false;time=0;dur=0;state('loading');$('am').style.display=$('sm').style.display='none';
- try{const A=await loadAVP();const p=new A({container:$('host'),isLive:false,preLoadTime:30,enableJitterBuffer:true,jitterBufferMax:8,jitterBufferMin:2});
+ try{const A=await loadAVP();const p = new A({
+  container: $('host'),
+  isLive: false,
+  preLoadTime: 30,
+  enableJitterBuffer: false
+});
   p.on('time',v=>{time=Number(v)/1000;ui()});['played','playing'].forEach(e=>p.on(e,()=>{playing=true;ui()}));['paused','ended'].forEach(e=>p.on(e,()=>{playing=false;ui()}));p.on('error',()=>state('error','Playback error'));
   const tm=setTimeout(()=>state('error','The video took too long to open'),60000);
   await p.load(location.origin+'/api/public/proxy?url='+encodeURIComponent(u));clearTimeout(tm);P=p;
