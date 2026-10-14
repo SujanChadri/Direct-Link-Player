@@ -56,29 +56,28 @@ function ui(){$('pp').textContent=playing?'❚❚':'▶';$('big').style.display=
 function state(s,msg){$('load').style.display=s==='loading'?'flex':'none';$('err').style.display=s==='error'?'flex':'none';$('bar').style.display=s==='ready'?'block':'none';if(msg)$('emsg').textContent=msg+'. Make sure the link points straight to a video file and hasn\'t expired.';if(s!=='ready')$('big').style.display='none'}
 async function start(u){url=u;$('hero').style.display='none';$('wrap').style.display='block';$('info').style.display='flex';$('name').textContent=fileName(u);$('u').value=u;
  if(P){try{P.destroy()}catch{}P=null}$('host').innerHTML='';playing=false;time=0;dur=0;state('loading');$('am').style.display=$('sm').style.display='none';
- try{const A=await loadAVP();const p = new A({
-  container: $('host'),
-  isLive: false,
-  preLoadTime: 30,
-  enableJitterBuffer: false
-});
+ try{const A=await loadAVP();const WB='https://cdn.jsdelivr.net/gh/zhaohappy/libmedia@1.3.1/dist';
+  const p=new A({container:$('host'),isLive:false,preLoadTime:30,enableJitterBuffer:true,jitterBufferMax:8,jitterBufferMin:2,
+   enableHardware:true,enableWebCodecs:true,enableWorker:true,enableAudioWorklet:true,wasmBaseUrl:WB,
+   // Always decode in the browser (WebCodecs + WASM fallback). MSE can't play AC3/EAC3/DTS/MKV audio and breaks track switching.
+   checkUseMSE:()=>false});
   p.on('time',v=>{time=Number(v)/1000;ui()});['played','playing'].forEach(e=>p.on(e,()=>{playing=true;ui()}));['paused','ended'].forEach(e=>p.on(e,()=>{playing=false;ui()}));p.on('error',()=>state('error','Playback error'));
   const tm=setTimeout(()=>state('error','The video took too long to open'),60000);
   await p.load(location.origin+'/api/public/proxy?url='+encodeURIComponent(u));clearTimeout(tm);P=p;
-  const st=p.getStreams?p.getStreams():[];for(const t of st){const d=Number(t.duration);if(!isFinite(d)||d<=0)continue;const tb=t.timeBase;const s=tb&&Number(tb.den)>0?d*(Number(tb.num)||1)/Number(tb.den):d/1000;if(s>dur)dur=s}
+  const st=p.getStreams?p.getStreams():[];try{dur=Number(p.getDuration())/1000}catch{}if(!isFinite(dur)||dur<=0){dur=0;for(const t of st){const d=Number(t.duration);if(!isFinite(d)||d<=0)continue;const tb=t.timeBase;const s=tb&&Number(tb.den)>0?d*(Number(tb.num)||1)/Number(tb.den):d/1000;if(s>dur)dur=s}}
   const a=st.filter(t=>String(t.mediaType).toLowerCase()==='audio'),s=st.filter(t=>String(t.mediaType).toLowerCase()==='subtitle');
-  curA=(p.selectedAudioStream&&p.selectedAudioStream.id)??(a[0]&&a[0].id);try{p.setSubtitleEnable&&p.setSubtitleEnable(false)}catch{}
-  const fillA=()=>{$('ap').innerHTML='';a.forEach((t,i)=>{const b=document.createElement('button');b.className=t.id===curA?'a':'';b.textContent=(t.id===curA?'● ':'')+label(t,i);b.onclick=async()=>{close();if(t.id===curA)return;const at=time;await p.selectAudio(t.id);curA=t.id;fillA();if(Math.abs(Number(p.currentTime)/1000-at)>2)seek(at)};$('ap').appendChild(b)})};
+  curA=(p.getSelectedAudioStreamId?p.getSelectedAudioStreamId():p.selectedAudioStream&&p.selectedAudioStream.id)??(a[0]&&a[0].id);try{p.setSubtitleEnable&&p.setSubtitleEnable(false)}catch{}
+  const fillA=()=>{$('ap').innerHTML='';a.forEach((t,i)=>{const b=document.createElement('button');b.className=t.id===curA?'a':'';b.textContent=(t.id===curA?'● ':'')+label(t,i);b.onclick=async()=>{close();if(t.id===curA||switching)return;switching=true;const at=time,was=playing;$('am').querySelector('button').textContent='🎧 Switching…';try{await p.selectAudio(t.id);curA=t.id;sv(true);const now=Number(p.currentTime)/1000;if(isFinite(now)&&Math.abs(now-at)>2)await seek(at);if(was&&!playing)await p.play()}catch(e){console.error('Audio switch failed',e)}finally{switching=false;$('am').querySelector('button').textContent='🎧 Audio ('+a.length+')';fillA()}};$('ap').appendChild(b)})};
   const fillS=()=>{$('sp').innerHTML='';[{id:-1,off:1},...s].forEach((t,i)=>{const b=document.createElement('button');b.className=t.id===curS?'a':'';b.textContent=(t.id===curS?'● ':'')+(t.off?'Off':label(t,i-1));b.onclick=async()=>{close();curS=t.id;fillS();if(t.id<0){p.setSubtitleEnable&&p.setSubtitleEnable(false);return}try{await p.selectSubtitle(t.id)}catch{}p.setSubtitleEnable&&p.setSubtitleEnable(true)};$('sp').appendChild(b)})};
   if(a.length){$('am').style.display='block';$('am').querySelector('button').textContent='🎧 Audio ('+a.length+')';fillA()}if(s.length){$('sm').style.display='block';fillS()}
   state('ready');ui()}catch(e){state('error',e&&e.message||'Could not open this video')}}
-const toggle=async()=>{if(!P)return;playing?P.pause():await P.play()};
+let switching=false;const toggle=async()=>{if(!P)return;if(playing){P.pause();return}try{await P.play()}catch{try{P.resume&&await P.resume()}catch{}}sv(true)};
 let seeking=false;async function seek(s){if(!P)return;time=s;ui();try{await P.seek(BigInt(Math.round(s*1000)))}catch{try{await P.seek(Math.round(s*1000))}catch{}}}
 function close(){document.querySelectorAll('.pop').forEach(x=>x.style.display='none')}
 document.querySelectorAll('[data-m]').forEach(b=>b.onclick=e=>{e.stopPropagation();const pop=$(b.dataset.m),o=pop.style.display==='block';close();pop.style.display=o?'none':'block'});
 $('host').onclick=toggle;$('big').onclick=toggle;$('pp').onclick=toggle;
 $('seek').oninput=()=>{seeking=true};$('seek').onchange=e=>{seeking=false;seek(Number(e.target.value))};
-const sv=()=>{try{P&&P.setVolume(muted?0:vol)}catch{}$('mute').textContent=muted||vol===0?'🔇':'🔊'};$('mute').onclick=()=>{muted=!muted;sv()};$('vol').oninput=e=>{vol=Number(e.target.value);muted=false;sv()};
+const sv=(now)=>{try{P&&P.setVolume(muted?0:vol,true)}catch{}$('mute').textContent=muted||vol===0?'🔇':'🔊'};$('mute').onclick=()=>{muted=!muted;sv()};$('vol').oninput=e=>{vol=Number(e.target.value);muted=false;sv()};
 $('fs').onclick=()=>document.fullscreenElement?document.exitFullscreen():$('wrap').requestFullscreen();
 $('retry').onclick=()=>start(url);
 $('share').onclick=async()=>{await navigator.clipboard.writeText(location.href);$('share').textContent='Copied';setTimeout(()=>$('share').textContent='Share link',1500)};
